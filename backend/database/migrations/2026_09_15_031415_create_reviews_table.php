@@ -16,12 +16,10 @@ return new class extends Migration
             $table->foreignId('organization_id')
                 ->constrained()
                 ->cascadeOnDelete();
-            $table->string('external_id');
             $table->string('author');
             $table->timestamp('published_at')->nullable();
             $table->text('text');
             $table->unsignedTinyInteger('rating');
-            $table->unique(['organization_id', 'external_id']);
             $table->timestamps();
         });
     }

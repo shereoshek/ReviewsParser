@@ -8,7 +8,6 @@ class Review extends Model
 {
     protected $fillable = [
         'organization_id',
-        'external_id',
         'author',
         'published_at',
         'text',
