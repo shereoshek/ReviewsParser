@@ -46,9 +46,20 @@ try {
             '.search-placemark-title__title-text'
         );
 
-        const ratingElement = document.querySelector(
-            '.search-placemark-title-modular-hint-view__rating'
-        );
+        /*
+         * Yandex Maps может использовать разные элементы
+         * для отображения рейтинга.
+         *
+         * Первый селектор — старый вариант.
+         * Второй — актуальный вариант.
+         */
+        const ratingElement =
+            document.querySelector(
+                '.search-placemark-title-modular-hint-view__rating'
+            ) ??
+            document.querySelector(
+                '.business-rating-badge-view__rating-text'
+            );
 
         const ratingsCountElement = document.querySelector(
             '.business-header-rating-view__text'
@@ -138,6 +149,24 @@ try {
     ) {
         throw new Error(
             'Organization ratings count has an invalid value.'
+        );
+    }
+
+    /*
+     * Если оценки у организации есть, но сам рейтинг
+     * не найден, считаем это проблемой разметки.
+     *
+     * Это лучше, чем молча сохранить rating = null
+     * и получить неполные данные.
+     */
+    if (
+        organization.ratingsCount > 0 &&
+        organization.rating === null
+    ) {
+        throw new Error(
+            'Organization rating was not found, ' +
+            'although ratings count is greater than zero. ' +
+            'Yandex Maps layout may have changed.'
         );
     }
 
