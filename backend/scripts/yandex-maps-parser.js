@@ -28,17 +28,19 @@ try {
         'Chrome/140.0.0.0 Safari/537.36'
     );
 
-    console.log(`Parsing: ${inputUrl}`);
+    console.error(`Parsing: ${inputUrl}`);
 
     await page.goto(inputUrl, {
         waitUntil: 'networkidle2',
         timeout: 60000,
     });
 
-    console.log(`Final URL: ${page.url()}`);
-    console.log(`Title: ${await page.title()}`);
+    console.error(`Final URL: ${page.url()}`);
+    console.error(`Title: ${await page.title()}`);
 
-    /* Получаем основные данные организации.*/
+    /*
+     * Получаем основные данные организации.
+     */
     const organization = await page.evaluate(() => {
         const nameElement = document.querySelector(
             '.search-placemark-title__title-text'
@@ -70,7 +72,9 @@ try {
         };
     });
 
-    /* Проверяем основные данные организации.*/
+    /*
+     * Проверяем основные данные организации.
+     */
     if (!organization.name) {
         throw new Error(
             'Organization name was not found. ' +
@@ -92,7 +96,10 @@ try {
         );
     }
 
-    /*Рейтинг может отсутствовать, если у организации ещё нет оценок.*/
+    /*
+     * Рейтинг может отсутствовать, если у организации
+     * ещё нет оценок.
+     */
     if (organization.rating) {
         organization.rating = Number(
             organization.rating.replace(',', '.')
@@ -111,7 +118,9 @@ try {
         organization.rating = null;
     }
 
-    /*Количество оценок.*/
+    /*
+     * Количество оценок.
+     */
     if (!organization.ratingsCount) {
         throw new Error(
             'Organization ratings count was not found. ' +
@@ -132,17 +141,21 @@ try {
         );
     }
 
-    console.log('Organization:', organization);
+    console.error('Organization:', organization);
 
-    /*Переходим на страницу отзывов.*/
+    /*
+     * Переходим на страницу отзывов.
+     */
     await page.goto(organization.reviewsUrl, {
         waitUntil: 'networkidle2',
         timeout: 60000,
     });
 
-    console.log(`Reviews page: ${page.url()}`);
+    console.error(`Reviews page: ${page.url()}`);
 
-    /*Получаем точное количество отзывов.*/
+    /*
+     * Получаем точное количество отзывов.
+     */
     const reviewsTotal = await page.evaluate(() => {
         const reviewsLabel = [...document.querySelectorAll(
             '.tabs-select-view__label'
@@ -189,9 +202,11 @@ try {
 
     organization.reviewsCount = reviewsTotal;
 
-    console.log(`Reviews total: ${reviewsTotal}`);
+    console.error(`Reviews total: ${reviewsTotal}`);
 
-    /* Загружаем отзывы.*/
+    /*
+     * Загружаем отзывы.
+     */
     let reviewsLoaded = 0;
     let noProgressAttempts = 0;
 
@@ -202,19 +217,25 @@ try {
             ).length;
         });
 
-        /*Достигли максимального количества отзывов.*/
+        /*
+         * Достигли максимального количества отзывов.
+         */
         if (reviewsCount >= MAX_REVIEWS) {
-            console.log('Maximum review limit reached.');
+            console.error('Maximum review limit reached.');
             break;
         }
 
-        /*Все доступные отзывы уже загружены.*/
+        /*
+         * Все доступные отзывы уже загружены.
+         */
         if (reviewsCount >= organization.reviewsCount) {
-            console.log('All available reviews loaded.');
+            console.error('All available reviews loaded.');
             break;
         }
 
-        /*Прокручиваем контейнер отзывов вниз.*/
+        /*
+         * Прокручиваем контейнер отзывов вниз.
+         */
         await page.evaluate(() => {
             const container = document.querySelector(
                 '.scroll__container'
@@ -231,7 +252,9 @@ try {
         });
 
         try {
-            /*Ждём появления новых карточек.*/
+            /*
+             * Ждём появления новых карточек.
+             */
             await page.waitForFunction(
                 previousCount => {
                     const currentCount =
@@ -254,14 +277,17 @@ try {
             });
 
             if (newReviewsCount < MAX_REVIEWS) {
-                console.log(
+                console.error(
                     `Reviews loaded: ${newReviewsCount}`
                 );
             }
 
             noProgressAttempts = 0;
         } catch {
-            /*Проверяем, не появились ли отзывы непосредственно перед окончанием ожидания.*/
+            /*
+             * Проверяем, не появились ли отзывы
+             * непосредственно перед окончанием ожидания.
+             */
             const currentReviewsCount = await page.evaluate(() => {
                 return document.querySelectorAll(
                     '.business-reviews-card-view__review'
@@ -270,7 +296,7 @@ try {
 
             if (currentReviewsCount > reviewsCount) {
                 if (currentReviewsCount < MAX_REVIEWS) {
-                    console.log(
+                    console.error(
                         `Reviews loaded: ${currentReviewsCount}`
                     );
                 }
@@ -282,13 +308,16 @@ try {
 
             noProgressAttempts++;
 
-            console.log(
+            console.error(
                 `No new reviews loaded. ` +
                 `Attempt ${noProgressAttempts}/` +
                 `${MAX_NO_PROGRESS_ATTEMPTS}.`
             );
 
-            /*После нескольких последовательных безрезультатных попыток прекращаем загрузку.*/
+            /*
+             * После нескольких последовательных
+             * безрезультатных попыток прекращаем загрузку.
+             */
             if (
                 noProgressAttempts >=
                 MAX_NO_PROGRESS_ATTEMPTS
@@ -298,16 +327,20 @@ try {
         }
     }
 
-    /*Получаем итоговое количество карточек.*/
+    /*
+     * Получаем итоговое количество карточек.
+     */
     reviewsLoaded = await page.evaluate(() => {
         return document.querySelectorAll(
             '.business-reviews-card-view__review'
         ).length;
     });
 
-    console.log(`Total reviews loaded: ${reviewsLoaded}`);
+    console.error(`Total reviews loaded: ${reviewsLoaded}`);
 
-    /*Проверяем пустой ответ.*/
+    /*
+     * Проверяем пустой ответ.
+     */
     if (
         organization.reviewsCount > 0 &&
         reviewsLoaded === 0
@@ -317,7 +350,10 @@ try {
         );
     }
 
-    /*Если отзывов должно быть меньше либо равно 600, должны загрузиться все.*/
+    /*
+     * Если отзывов должно быть меньше либо равно 600,
+     * должны загрузиться все.
+     */
     if (
         organization.reviewsCount <= MAX_REVIEWS &&
         reviewsLoaded !== organization.reviewsCount
@@ -328,7 +364,10 @@ try {
         );
     }
 
-    /*Если отзывов больше 600, должны загрузиться ровно 600.*/
+    /*
+     * Если отзывов больше 600,
+     * должны загрузиться ровно 600.
+     */
     if (
         organization.reviewsCount > MAX_REVIEWS &&
         reviewsLoaded !== MAX_REVIEWS
@@ -339,7 +378,9 @@ try {
         );
     }
 
-    /*Раскрываем длинные отзывы.*/
+    /*
+     * Раскрываем длинные отзывы.
+     */
     const reviewElements = await page.$$(
         '.business-reviews-card-view__review'
     );
@@ -369,7 +410,9 @@ try {
         }
     }
 
-    /*Извлекаем данные отзывов.*/
+    /*
+     * Извлекаем данные отзывов.
+     */
     const reviews = await page.evaluate(() => {
         return [...document.querySelectorAll(
             '.business-reviews-card-view__review'
@@ -406,7 +449,9 @@ try {
         }));
     });
 
-    /*Проверяем каждый отзыв.*/
+    /*
+     * Проверяем каждый отзыв.
+     */
     for (let index = 0; index < reviews.length; index++) {
         const review = reviews[index];
 
@@ -450,9 +495,13 @@ try {
                 `Review #${index + 1}: invalid rating "${review.rating}".`
             );
         }
+
+        review.rating = rating;
     }
 
-    /*Проверяем количество распарсенных отзывов.*/
+    /*
+     * Проверяем количество распарсенных отзывов.
+     */
     if (reviews.length !== reviewsLoaded) {
         throw new Error(
             `Expected ${reviewsLoaded} parsed reviews, ` +
@@ -460,17 +509,32 @@ try {
         );
     }
 
-    console.log(`Reviews parsed: ${reviews.length}`);
+    console.error(`Reviews parsed: ${reviews.length}`);
 
     if (reviews.length > 0) {
-        console.log('First review:', reviews[0]);
-        console.log(
-            'Last review:',
-            reviews[reviews.length - 1]
-        );
+        console.error('First review:', reviews[0]);
+        console.error('Last review:', reviews[reviews.length - 1]);
     }
+
+    /*
+     * Формируем итоговый JSON.
+     *
+     * В stdout выводится только JSON.
+     * Все диагностические сообщения идут в stderr.
+     */
+    console.log(JSON.stringify({
+        organization: {
+            externalId: organization.externalId,
+            name: organization.name,
+            rating: organization.rating,
+            ratingsCount: organization.ratingsCount,
+            reviewsCount: organization.reviewsCount,
+        },
+        reviews,
+    }, null, 2));
 } catch (error) {
     console.error(`Parser error: ${error.message}`);
+
     process.exitCode = 1;
 } finally {
     await browser.close();
