@@ -8,6 +8,7 @@ use App\Models\Review;
 use App\Services\Parsers\YandexMapsParser;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class ParseOrganizationJob implements ShouldQueue
@@ -26,11 +27,14 @@ class ParseOrganizationJob implements ShouldQueue
 
     public function handle(YandexMapsParser $parser): void
     {
-        $parsingRequest = ParsingRequest::findOrFail($this->parsingRequestId);
+        $parsingRequest = ParsingRequest::findOrFail(
+            $this->parsingRequestId
+        );
 
         $parsingRequest->update([
             'status' => 'processing',
             'progress' => 10,
+            'error' => null,
         ]);
 
         $result = $parser->parse($this->url);
@@ -72,14 +76,55 @@ class ParseOrganizationJob implements ShouldQueue
         $parsingRequest->update([
             'status' => 'completed',
             'progress' => 100,
+            'error' => null,
         ]);
     }
 
     public function failed(Throwable $exception): void
     {
+        Log::error('Organization parsing failed.', [
+            'parsing_request_id' => $this->parsingRequestId,
+            'url' => $this->url,
+            'exception' => $exception,
+        ]);
+
+        $errorMessage = $this->getUserErrorMessage($exception);
+
         ParsingRequest::whereKey($this->parsingRequestId)->update([
             'status' => 'failed',
-            'error' => $exception->getMessage(),
+            'progress' => 0,
+            'error' => $errorMessage,
         ]);
+    }
+
+    private function getUserErrorMessage(Throwable $exception): string
+    {
+        $message = $exception->getMessage();
+
+        if (
+            str_contains($message, 'ERR_NAME_NOT_RESOLVED') ||
+            str_contains($message, 'ERR_CONNECTION') ||
+            str_contains($message, 'ERR_TIMED_OUT') ||
+            str_contains($message, 'timeout')
+        ) {
+            return 'Не удалось открыть страницу Yandex Maps. Проверьте ссылку и доступность страницы.';
+        }
+
+        if (
+            str_contains($message, 'invalid JSON') ||
+            str_contains($message, 'invalid organization data') ||
+            str_contains($message, 'invalid reviews data') ||
+            str_contains($message, 'has an invalid format')
+        ) {
+            return 'Не удалось обработать данные Yandex Maps. Возможно, структура страницы изменилась.';
+        }
+
+        if (
+            str_contains($message, 'empty response')
+        ) {
+            return 'Yandex Maps вернул пустой ответ. Попробуйте повторить парсинг позже.';
+        }
+
+        return 'Не удалось получить данные организации. Попробуйте проверить ссылку и повторить парсинг.';
     }
 }
