@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Jobs\ParseOrganizationJob;
 use App\Models\Organization;
+use App\Models\ParsingRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -16,10 +17,18 @@ class OrganizationController extends Controller
             'url' => ['required', 'url'],
         ]);
 
-        ParseOrganizationJob::dispatch($validated['url']);
+        $parsingRequest = ParsingRequest::create([
+            'url' => $validated['url'],
+        ]);
+
+        ParseOrganizationJob::dispatch(
+            $validated['url'],
+            $parsingRequest->id
+        );
 
         return response()->json([
             'message' => 'Organization parsing has been queued.',
+            'parsing_request_id' => $parsingRequest->id,
         ], 202);
     }
 

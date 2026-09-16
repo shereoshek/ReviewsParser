@@ -3,10 +3,12 @@
 namespace App\Jobs;
 
 use App\Models\Organization;
+use App\Models\ParsingRequest;
 use App\Models\Review;
 use App\Services\Parsers\YandexMapsParser;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Throwable;
 
 class ParseOrganizationJob implements ShouldQueue
 {
@@ -18,12 +20,24 @@ class ParseOrganizationJob implements ShouldQueue
 
     public function __construct(
         public string $url,
+        public int $parsingRequestId,
     ) {
     }
 
     public function handle(YandexMapsParser $parser): void
     {
+        $parsingRequest = ParsingRequest::findOrFail($this->parsingRequestId);
+
+        $parsingRequest->update([
+            'status' => 'processing',
+            'progress' => 10,
+        ]);
+
         $result = $parser->parse($this->url);
+
+        $parsingRequest->update([
+            'progress' => 70,
+        ]);
 
         $organization = Organization::updateOrCreate(
             [
@@ -38,6 +52,11 @@ class ParseOrganizationJob implements ShouldQueue
             ],
         );
 
+        $parsingRequest->update([
+            'organization_id' => $organization->id,
+            'progress' => 80,
+        ]);
+
         foreach ($result->reviews as $reviewData) {
             Review::firstOrCreate(
                 [
@@ -49,5 +68,18 @@ class ParseOrganizationJob implements ShouldQueue
                 ],
             );
         }
+
+        $parsingRequest->update([
+            'status' => 'completed',
+            'progress' => 100,
+        ]);
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        ParsingRequest::whereKey($this->parsingRequestId)->update([
+            'status' => 'failed',
+            'error' => $exception->getMessage(),
+        ]);
     }
 }

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\OrganizationController;
+use App\Http\Controllers\Api\ParsingRequestController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -25,4 +26,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/organizations/{organization}/reviews',[OrganizationController::class, 'reviews']);
     
+    Route::get('/parsing-requests/{parsingRequest}',[ParsingRequestController::class, 'show']); //Статус бар
+
 });
